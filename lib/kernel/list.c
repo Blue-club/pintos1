@@ -203,13 +203,25 @@ list_push_back (struct list *list, struct list_elem *elem) {
 	list_insert (list_end (list), elem);
 }
 
-/* Removes ELEM from its list and returns the element that
-   followed it.  Undefined behavior if ELEM is not in a list.
+/* 목록에서 ELEM을 제거하고 뒤에 오는 요소를 반환합니다. 
+ELEM이 목록에 없으면 정의되지 않은 동작입니다.
 
-   It's not safe to treat ELEM as an element in a list after
-   removing it.  In particular, using list_next() or list_prev()
-   on ELEM after removal yields undefined behavior.  This means
-   that a naive loop to remove the elements in a list will fail:
+제거한 후 ELEM을 목록의 요소로 취급하는 것은 안전하지 않습니다. 
+특히 제거 후 ELEM에서 list_next() 또는 list_prev()를 사용하면 
+정의되지 않은 동작이 발생합니다. 
+이는 목록의 요소를 제거하는 순진한 루프가 실패함을 의미합니다.
+
+** 유의사항 : 목록에서 항목 삭제시 목록 length 등이 변경되므로,
+for문의 증감식에 list_next()를 활용하는 등, 
+list_next() 또는 list_prev() 사용하면 안전하지 않다.
+
+Removes ELEM from its list and returns the element that
+followed it.  Undefined behavior if ELEM is not in a list.
+
+It's not safe to treat ELEM as an element in a list after
+removing it.  In particular, using list_next() or list_prev()
+on ELEM after removal yields undefined behavior.  This means
+that a naive loop to remove the elements in a list will fail:
 
  ** DON'T DO THIS **
  for (e = list_begin (&list); e != list_end (&list); e = list_next (e))
@@ -374,9 +386,13 @@ inplace_merge (struct list_elem *a0, struct list_elem *a1b0,
 		}
 }
 
-/* Sorts LIST according to LESS given auxiliary data AUX, using a
-   natural iterative merge sort that runs in O(n lg n) time and
-   O(1) space in the number of elements in LIST. */
+/* LIST의 요소 수에서 
+O(n lg n) 시간 및 O(1) 공간에서 실행되는 자연 반복 병합 정렬을 사용하여 
+보조 데이터 AUX가 주어진 LESS에 따라 LIST를 정렬합니다.
+
+Sorts LIST according to LESS given auxiliary data AUX, using a
+natural iterative merge sort that runs in O(n lg n) time and
+O(1) space in the number of elements in LIST. */
 void
 list_sort (struct list *list, list_less_func *less, void *aux) {
 	size_t output_run_cnt;        /* Number of runs output in current pass. */
@@ -412,9 +428,13 @@ list_sort (struct list *list, list_less_func *less, void *aux) {
 	ASSERT (is_sorted (list_begin (list), list_end (list), less, aux));
 }
 
-/* Inserts ELEM in the proper position in LIST, which must be
-   sorted according to LESS given auxiliary data AUX.
-   Runs in O(n) average case in the number of elements in LIST. */
+/* 보조 데이터 AUX가 주어진 LESS(정렬기준함수)에 따라 정렬되어야 하는 
+LIST의 적절한 위치에 ELEM을 삽입합니다. 
+LIST의 요소 수에서 O(n) 평균 사례로 실행됩니다.
+
+Inserts ELEM in the proper position in LIST, which must be
+sorted according to LESS given auxiliary data AUX.
+Runs in O(n) average case in the number of elements in LIST. */
 void
 list_insert_ordered (struct list *list, struct list_elem *elem,
 		list_less_func *less, void *aux) {
@@ -424,16 +444,21 @@ list_insert_ordered (struct list *list, struct list_elem *elem,
 	ASSERT (elem != NULL);
 	ASSERT (less != NULL);
 
+	// for문 : list 첫 요소부터 리스트 마지막 요소까지, 변경: list_next로 순차변경
 	for (e = list_begin (list); e != list_end (list); e = list_next (e))
 		if (less (elem, e, aux))
 			break;
 	return list_insert (e, elem);
 }
 
-/* Iterates through LIST and removes all but the first in each
-   set of adjacent elements that are equal according to LESS
-   given auxiliary data AUX.  If DUPLICATES is non-null, then the
-   elements from LIST are appended to DUPLICATES. */
+/* 인자 LIST를 이터레이션 순회하여, 인자 AUX를 조회한다.
+AUX가 중복하여 들어있다면(중복기준 : 인자 LESS) 첫번째 항목 제외 나머지를 제거한다.
+인자 DUPLICATES가 null이 아닐 경우 LIST의 요소가 DUPLICATES에 추가됨.
+
+Iterates through LIST and removes all but the first in each
+set of adjacent elements that are equal according to LESS
+given auxiliary data AUX.  If DUPLICATES is non-null, then the
+elements from LIST are appended to DUPLICATES. */
 void
 list_unique (struct list *list, struct list *duplicates,
 		list_less_func *less, void *aux) {
@@ -454,10 +479,14 @@ list_unique (struct list *list, struct list *duplicates,
 			elem = next;
 }
 
-/* Returns the element in LIST with the largest value according
-   to LESS given auxiliary data AUX.  If there is more than one
-   maximum, returns the one that appears earlier in the list.  If
-   the list is empty, returns its tail. */
+/* 보조 데이터 AUX가 주어진 LESS에 따라 가장 큰 값을 가진 LIST의 요소를 반환합니다.
+최대값이 두 개 이상인 경우 목록에서 먼저 나타나는 항목을 반환합니다.
+목록이 비어 있으면 꼬리를 반환합니다.
+
+Returns the element in LIST with the largest value according
+to LESS given auxiliary data AUX.  If there is more than one
+maximum, returns the one that appears earlier in the list.  If
+the list is empty, returns its tail. */
 struct list_elem *
 list_max (struct list *list, list_less_func *less, void *aux) {
 	struct list_elem *max = list_begin (list);
@@ -471,10 +500,15 @@ list_max (struct list *list, list_less_func *less, void *aux) {
 	return max;
 }
 
-/* Returns the element in LIST with the smallest value according
-   to LESS given auxiliary data AUX.  If there is more than one
-   minimum, returns the one that appears earlier in the list.  If
-   the list is empty, returns its tail. */
+/* 인자 AUX가 인자 LESS 기준에 따라 
+가장 작은 값을 가진 LIST의 요소를 반환합니다. 
+최소값이 둘 이상인 경우 목록에서 먼저 나타나는 항목을 반환합니다.
+목록이 비어 있으면 꼬리를 반환합니다.
+
+Returns the element in LIST with the smallest value according
+to LESS given auxiliary data AUX.  If there is more than one
+minimum, returns the one that appears earlier in the list.  If
+the list is empty, returns its tail. */
 struct list_elem *
 list_min (struct list *list, list_less_func *less, void *aux) {
 	struct list_elem *min = list_begin (list);

@@ -20,6 +20,12 @@
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
+/*-------------------------- project.1-Alarm_Clock -----------------------------*/
+// global_tick 위치가 헷갈린다. 여기가 맞나?
+// sleep_list에 있는 local tick(알람시간) 중 최솟값. = 가장 이른 알람시간
+int64_t global_tick = INT64_MAX;
+/*-------------------------- project.1-Alarm_Clock -----------------------------*/
+
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -29,9 +35,12 @@ static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 
-/* Sets up the 8254 Programmable Interval Timer (PIT) to
-   interrupt PIT_FREQ times per second, and registers the
-   corresponding interrupt. */
+/* 초당 PIT_FREQ 횟수를 인터럽트하도록 
+8254 PIT(프로그래밍 가능 간격 타이머)를 설정하고 
+해당 인터럽트를 등록합니다.
+Sets up the 8254 Programmable Interval Timer (PIT) to
+interrupt PIT_FREQ times per second, and registers the
+corresponding interrupt. */
 void
 timer_init (void) {
 	/* 8254 input frequency divided by TIMER_FREQ, rounded to
@@ -45,7 +54,8 @@ timer_init (void) {
 	intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
 
-/* Calibrates loops_per_tick, used to implement brief delays. */
+/* 짧은 지연(brief delays)을 구현하는 데 사용되는 loops_per_tick을 보정합니다.
+Calibrates loops_per_tick, used to implement brief delays. */
 void
 timer_calibrate (void) {
 	unsigned high_bit, test_bit;
@@ -70,8 +80,8 @@ timer_calibrate (void) {
 	printf ("%'"PRIu64" loops/s.\n", (uint64_t) loops_per_tick * TIMER_FREQ);
 }
 
-/* OS가 부팅된 이후, timer의 tick 수 반환
-(Returns the number of timer ticks since the OS booted.) */
+/* OS가 부팅된 이후, timer의 tick 수 반환. 
+Returns the number of timer ticks since the OS booted. */
 int64_t
 timer_ticks (void) {
 	enum intr_level old_level = intr_disable ();
@@ -82,59 +92,59 @@ timer_ticks (void) {
 }
 
 /* 인자 THEN 이후 경과된 타이머 틱 수를 반환한다.
-   timer_ticks()에서 한 번 반환된 값이어야 합니다.
-   Returns the number of timer ticks elapsed since THEN, which
-   should be a value once returned by timer_ticks(). */
+timer_ticks()에서 한 번 반환된 값이어야 합니다.
+Returns the number of timer ticks elapsed since THEN, which
+should be a value once returned by timer_ticks(). */
 int64_t
 timer_elapsed (int64_t then) {
 	return timer_ticks () - then;
 }
 
-/* ticks timer tick 동안 실행을 일시 중단 
-(Suspends execution for approximately TICKS timer ticks.)
+/* ticks 시간동안 스레드 실행을 일시 중단
+예시 : timer_sleep(8시간) -> 8시간 후에 깨워주세요.(8시에 깨워주세요 아님)
+Suspends execution for approximately TICKS timer ticks.
 */
 void
 timer_sleep (int64_t ticks) {
-	// timer_ticks : 현재 tick 값을 반환
+	// timer_ticks : 현재 tick 값(현재시간)을 반환. 함수 호출시점의 ticks
+	// 예시 : 지금시간 1시
 	int64_t start = timer_ticks ();
 
 	ASSERT (intr_get_level () == INTR_ON);
-	// timer_elapsed : 인수 start 이후 경과된 tick 수 반환
-	while (timer_elapsed (start) < ticks)
-		/*	thread_yield : 
+	/*	기존코드 이해목적 주석
+		timer_elapsed : 
+			인수 start 이후 경과된 tick 수 반환
+			-> 인자 tick 값과 start이후 경과된 tick 비교, 
+			ticks(sleep 요청시간)가 더 커서 sleep 상태 유지해야하면 yield
+
+		thread_yield : 
 			스레드 제어권을 cpu에게 양보하고(cpu는 제어권 받으면 스케줄링 시작함)
 			현재 스레드는 ready_list에 추가한다(큐-> 제일 뒤에 추가됨)
-		*/
-		thread_yield ();
 
-	/* TODO : 14p, sample implementation 
-	스레드가 자기 자신을 sleep queue(sleep 대기열)로 이동시킨다.
+		while 요건 : 함수호출기준 경과시간<요청시간 (== 실질적으로 sleep 필요)
+		
+	*/
+
+	// 기존 코드 : busy_waiting 방식
+	// while (timer_elapsed (start) < ticks)
+	// 	thread_yield ();
+
+	/* DONE : 스레드가 자기 자신을 sleep queue(sleep 대기열)로 이동시킨다.
 		timer_sleep()이 호출될 때, 틱을 체크
 		웨이크업까지 시간이 남아있다면
 			-> ready_list에서 caller thread(=timer_sleep를 호출한 스레드)를 제거하고 삽입한다.
 
-	if(timer_elapsed(start) < ticks)
-		thread_sleep(적절한 값. );	// 직접 구현하세여
-		값 : ticks - (timer_elapsed(start) 아닐까? 
-		sleep 요청받은 값 - 경과시간
-	
+		Sample inplementation :
+		if(timer_elapsed(start) < ticks)
+			thread_sleep(적절한 값. );	// 직접 구현하세여
 	*/
-	/* 16p : Change the state of the caller thread to 'blocked' and put it to the sleep queue.
-
-		if the current thread is not idle thread,
-		change the statate of the caller thread to BLOCKED,
-		sthore the local tick to wake up,
-		update the global tick if necessary,
-		and call schedule()
-
-		When you manipulate thread list, disable interupt!
-
-		현재 스레드가 유휴 스레드가 아닌 경우,
-		호출자 스레드의 상태를 BLOCKED로 변경,
-		깨우기 위해 로컬 틱을 저장합니다.
-		필요한 경우 글로벌 틱을 업데이트하고 schedule()을 호출합니다.
-		스레드 목록을 조작할 때 인터럽트를 비활성화하십시오!
-	*/
+	if (timer_elapsed(start)<ticks)
+		/* 
+			알람을 맞춘다 생각하자.
+			현재시간 + 요청시간 - 호출시점기준 소요시간
+			1시 10분 + 8시간 - 10분 -> 9시
+		*/
+		thread_sleep(timer_ticks() + ticks - timer_elapsed(start));
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -155,14 +165,15 @@ timer_nsleep (int64_t ns) {
 	real_time_sleep (ns, 1000 * 1000 * 1000);
 }
 
-/* Prints timer statistics. */
+/* 타이머 통계를 인쇄.
+Prints timer statistics. */
 void
 timer_print_stats (void) {
 	printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
 
 /* 타이머 인터럽트 핸들러
-(Timer interrupt handler.) */
+Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
@@ -180,10 +191,14 @@ timer_interrupt (struct intr_frame *args UNUSED) {
 		필요한 경우 준비 목록으로 이동합니다.
 		글로벌 틱을 업데이트합니다.
 	*/
+	if (global_tick <= ticks)
+		thread_awake(ticks);
 }
 
-/* Returns true if LOOPS iterations waits for more than one timer
-   tick, otherwise false. */
+/* LOOPS 반복이 둘 이상의 타이머 틱을 기다리면 true를 반환하고, 
+그렇지 않으면 false를 반환합니다.
+Returns true if LOOPS iterations waits for more than one timer
+tick, otherwise false. */
 static bool
 too_many_loops (unsigned loops) {
 	/* Wait for a timer tick. */

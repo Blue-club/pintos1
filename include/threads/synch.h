@@ -38,7 +38,12 @@ void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
-/* Optimization barrier.
+/* 최적화 장벽.
+
+컴파일러는 최적화 장벽을 넘어 작업을 재정렬하지 않습니다. 
+자세한 내용은 참조 가이드의 "최적화 장벽"을 참조하십시오.
+
+ * Optimization barrier.
  *
  * The compiler will not reorder operations across an
  * optimization barrier.  See "Optimization Barriers" in the

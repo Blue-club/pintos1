@@ -95,10 +95,9 @@ struct thread {
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
-	/* TODO : 스레드 구조체 수정(Modify thread structure)
-	local tick 역할을 하는 새로운 필드 추가 (예: wakeup_tick)
-	Add new field for local tick (e.g. wakeup_tick) */
-	// tick till wake up
+	/* DONE : 스레드 구조체 수정
+	local tick을 저장할 새로운 필드 추가 (이름 예: wakeup_tick), int64 타입 사용 */
+	int64_t wakeup_tick;
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
@@ -136,7 +135,14 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
-
+/*-------------------------- project.1-Alarm_Clock -----------------------------*/
+void thread_sleep(int64_t);
+void thread_awake(int64_t);
+void update_next_tick_to_awake(int64_t);
+int64_t get_next_tick_to_awake(void);
+// java 기본 메소드 중 compareTo 역할, 인자로 주어진 스레드들의 ticks를 비교
+// bool compare_ticks (const struct list_elem *a, const struct list_elem *a, void *aux UNUSED);
+/*-------------------------- project.1-Alarm_Clock -----------------------------*/
 int thread_get_priority (void);
 void thread_set_priority (int);
 
