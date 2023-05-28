@@ -253,7 +253,8 @@ strtok_r (char *s, const char *delimiters, char **save_ptr) {
 	return token;
 }
 
-/* Sets the SIZE bytes in DST to VALUE. */
+/* DST의 SIZE 바이트를 VALUE로 설정합니다.
+Sets the SIZE bytes in DST to VALUE. */
 void *
 memset (void *dst_, int value, size_t size) {
 	unsigned char *dst = dst_;
@@ -266,7 +267,8 @@ memset (void *dst_, int value, size_t size) {
 	return dst_;
 }
 
-/* Returns the length of STRING. */
+/* STRING의 길이를 반환합니다.
+Returns the length of STRING. */
 size_t
 strlen (const char *string) {
 	const char *p;

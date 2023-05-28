@@ -110,7 +110,8 @@ static void pic_end_of_interrupt (int irq);
 /* Interrupt handlers. */
 void intr_handler (struct intr_frame *args);
 
-/* Returns the current interrupt status. */
+/* 현재 인터럽트 상태를 반환.
+(Returns the current interrupt status.) */
 enum intr_level
 intr_get_level (void) {
 	uint64_t flags;
@@ -252,8 +253,8 @@ intr_register_int (uint8_t vec_no, int dpl, enum intr_level level,
 	register_handler (vec_no, dpl, level, handler, name);
 }
 
-/* Returns true during processing of an external interrupt
-   and false at all other times. */
+/* 외부 인터럽트 처리 중에는 true를 반환, 다른 모든 시간에는 false를 반환
+Returns true during processing of an external interrupt and false at all other times. */
 bool
 intr_context (void) {
 	return in_external_intr;

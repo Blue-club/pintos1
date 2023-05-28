@@ -70,7 +70,8 @@ timer_calibrate (void) {
 	printf ("%'"PRIu64" loops/s.\n", (uint64_t) loops_per_tick * TIMER_FREQ);
 }
 
-/* Returns the number of timer ticks since the OS booted. */
+/* OS가 부팅된 이후, timer의 tick 수 반환
+(Returns the number of timer ticks since the OS booted.) */
 int64_t
 timer_ticks (void) {
 	enum intr_level old_level = intr_disable ();
@@ -80,21 +81,60 @@ timer_ticks (void) {
 	return t;
 }
 
-/* Returns the number of timer ticks elapsed since THEN, which
+/* 인자 THEN 이후 경과된 타이머 틱 수를 반환한다.
+   timer_ticks()에서 한 번 반환된 값이어야 합니다.
+   Returns the number of timer ticks elapsed since THEN, which
    should be a value once returned by timer_ticks(). */
 int64_t
 timer_elapsed (int64_t then) {
 	return timer_ticks () - then;
 }
 
-/* Suspends execution for approximately TICKS timer ticks. */
+/* ticks timer tick 동안 실행을 일시 중단 
+(Suspends execution for approximately TICKS timer ticks.)
+*/
 void
 timer_sleep (int64_t ticks) {
+	// timer_ticks : 현재 tick 값을 반환
 	int64_t start = timer_ticks ();
 
 	ASSERT (intr_get_level () == INTR_ON);
+	// timer_elapsed : 인수 start 이후 경과된 tick 수 반환
 	while (timer_elapsed (start) < ticks)
+		/*	thread_yield : 
+			스레드 제어권을 cpu에게 양보하고(cpu는 제어권 받으면 스케줄링 시작함)
+			현재 스레드는 ready_list에 추가한다(큐-> 제일 뒤에 추가됨)
+		*/
 		thread_yield ();
+
+	/* TODO : 14p, sample implementation 
+	스레드가 자기 자신을 sleep queue(sleep 대기열)로 이동시킨다.
+		timer_sleep()이 호출될 때, 틱을 체크
+		웨이크업까지 시간이 남아있다면
+			-> ready_list에서 caller thread(=timer_sleep를 호출한 스레드)를 제거하고 삽입한다.
+
+	if(timer_elapsed(start) < ticks)
+		thread_sleep(적절한 값. );	// 직접 구현하세여
+		값 : ticks - (timer_elapsed(start) 아닐까? 
+		sleep 요청받은 값 - 경과시간
+	
+	*/
+	/* 16p : Change the state of the caller thread to 'blocked' and put it to the sleep queue.
+
+		if the current thread is not idle thread,
+		change the statate of the caller thread to BLOCKED,
+		sthore the local tick to wake up,
+		update the global tick if necessary,
+		and call schedule()
+
+		When you manipulate thread list, disable interupt!
+
+		현재 스레드가 유휴 스레드가 아닌 경우,
+		호출자 스레드의 상태를 BLOCKED로 변경,
+		깨우기 위해 로컬 틱을 저장합니다.
+		필요한 경우 글로벌 틱을 업데이트하고 schedule()을 호출합니다.
+		스레드 목록을 조작할 때 인터럽트를 비활성화하십시오!
+	*/
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -120,12 +160,26 @@ void
 timer_print_stats (void) {
 	printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
-/* Timer interrupt handler. */
+
+/* 타이머 인터럽트 핸들러
+(Timer interrupt handler.) */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
-	thread_tick ();
+	thread_tick ();	// update the cpu usage for running process
+
+	/* code to add: ​
+		check sleep list and the global tick.​
+		find any threads to wake up,​
+		move them to the ready list if necessary.​
+		update the global tick.​
+
+		추가할 코드 : 
+		수면 목록과 글로벌 틱을 확인하십시오.
+		깨울 스레드 찾기,
+		필요한 경우 준비 목록으로 이동합니다.
+		글로벌 틱을 업데이트합니다.
+	*/
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -146,20 +200,27 @@ too_many_loops (unsigned loops) {
 	return start != ticks;
 }
 
-/* Iterates through a simple loop LOOPS times, for implementing
-   brief delays.
+/* 짧은 지연(brief delays)을 구현하기 위해 인자 loop 시간만큼 루프를 반복합니다.
 
-   Marked NO_INLINE because code alignment can significantly
-   affect timings, so that if this function was inlined
-   differently in different places the results would be difficult
-   to predict. */
+코드 정렬이 타이밍에 상당한 영향을 줄 수 있으므로 
+이 함수가 다른 위치에서 다르게 인라인되면 결과를 예측하기 어렵기 때문에 
+NO_INLINE으로 표시되었습니다.
+
+Iterates through a simple loop LOOPS times, for implementing
+brief delays.
+
+Marked NO_INLINE because code alignment can significantly
+affect timings, so that if this function was inlined
+differently in different places the results would be difficult
+to predict. */
 static void NO_INLINE
 busy_wait (int64_t loops) {
 	while (loops-- > 0)
 		barrier ();
 }
 
-/* Sleep for approximately NUM/DENOM seconds. */
+/* 약 NUM/DENOM초 동안 sleep합니다.
+Sleep for approximately NUM/DENOM seconds. */
 static void
 real_time_sleep (int64_t num, int32_t denom) {
 	/* Convert NUM/DENOM seconds into timer ticks, rounding down.

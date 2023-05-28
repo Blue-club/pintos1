@@ -12,10 +12,10 @@
 
 /* States in a thread's life cycle. */
 enum thread_status {
-	THREAD_RUNNING,     /* Running thread. */
-	THREAD_READY,       /* Not running but ready to run. */
-	THREAD_BLOCKED,     /* Waiting for an event to trigger. */
-	THREAD_DYING        /* About to be destroyed. */
+	THREAD_RUNNING,     /* 실행중인 스레드(Running thread). */
+	THREAD_READY,       /* 실행준비가 된 스레드 (Not running but ready to run). */
+	THREAD_BLOCKED,     /* 이벤트 트리거 대기중인 스레드(Waiting for an event to trigger). */
+	THREAD_DYING        /* 완전 종료된 스레드. terminated. (About to be destroyed). */
 };
 
 /* Thread identifier type.
@@ -28,7 +28,7 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
-/* A kernel thread or user process.
+/* A kernel thread or user process. 
  *
  * Each thread structure is stored in its own 4 kB page.  The
  * thread structure itself sits at the very bottom of the page
@@ -87,14 +87,18 @@ typedef int tid_t;
  * blocked state is on a semaphore wait list. */
 struct thread {
 	/* Owned by thread.c. */
-	tid_t tid;                          /* Thread identifier. */
-	enum thread_status status;          /* Thread state. */
-	char name[16];                      /* Name (for debugging purposes). */
-	int priority;                       /* Priority. */
+	tid_t tid;                          /* 스레드 식별자 - Thread identifier. */
+	enum thread_status status;          /* 스레드 상태 - Thread state. */
+	char name[16];                      /* 이름 - Name (for debugging purposes). */
+	int priority;                       /* 우선순위 - Priority. */
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
+	/* TODO : 스레드 구조체 수정(Modify thread structure)
+	local tick 역할을 하는 새로운 필드 추가 (예: wakeup_tick)
+	Add new field for local tick (e.g. wakeup_tick) */
+	// tick till wake up
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */

@@ -4,10 +4,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* Interrupts on or off? */
+/* 인터럽트 on/off
+Interrupts on or off? */
 enum intr_level {
-	INTR_OFF,             /* Interrupts disabled. */
-	INTR_ON               /* Interrupts enabled. */
+	INTR_OFF,             /* 인터럽트 불가 Interrupts disabled. */
+	INTR_ON               /* 인터럽트 가능 Interrupts enabled. */
 };
 
 enum intr_level intr_get_level (void);
