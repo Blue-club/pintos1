@@ -74,7 +74,7 @@ void sema_down (struct semaphore *sema) {
 	}
 
 	sema->value--;
-
+	
 	intr_set_level (old_level);
 }
 
@@ -194,13 +194,23 @@ lock_init (struct lock *lock) {
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
-void
-lock_acquire (struct lock *lock) {
+void lock_acquire (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
 
+	struct thread *holder = lock->holder;
+	struct thread *curr = thread_current();
+
+	if (holder != NULL) {
+		curr->wait_lock = lock;
+		list_insert_ordered(&holder->donator_list, &curr->donator_elem, cmp_donate_priority, NULL);
+		donate_priority();
+	}
+
 	sema_down (&lock->semaphore);
+
+	curr->wait_lock = NULL;
 	lock->holder = thread_current ();
 }
 
@@ -235,6 +245,10 @@ lock_release (struct lock *lock) {
 	ASSERT (lock_held_by_current_thread (lock));
 
 	lock->holder = NULL;
+
+	remove_with_lock(lock);
+	refresh_priority();
+
 	sema_up (&lock->semaphore);
 }
 
@@ -343,4 +357,63 @@ bool cmp_sema_priority(struct list_elem *e1, struct list_elem *e2, void *aux) {
 	struct thread *t2 = list_entry(list_front(&s2.waiters), struct thread, elem);
 
 	return t1->priority > t2->priority;
+}
+
+bool cmp_donate_priority(struct list_elem *e1, struct list_elem *e2, void *aux) {
+	struct thread *t1 = list_entry(e1, struct thread, donator_elem);
+	struct thread *t2 = list_entry(e2, struct thread, donator_elem);
+
+	return t1->priority > t2->priority;
+}
+
+/* 현재 진행중인 스레드의 priority가 얻으려하는 lock을 가지고 있는 스레드
+   holder의 priority보다 높다면 상속해준다.
+   근데 만약 holder가 기다리고 있는 lock의 holder도 우선순위가 낮다면 여기에도 상속.
+   이 작업을 최대 8번까지 해준다. */
+void donate_priority() {
+	struct thread *holder = NULL;
+	struct thread *now = thread_current();
+	int64_t running_priority = now->priority;
+
+	for (int i = 0; i < 8; i++) {
+		if (now->wait_lock == NULL)
+			break;
+		
+		holder = now->wait_lock->holder;
+
+		if (running_priority > holder->priority)
+			holder->priority = running_priority;
+		
+		now = holder;
+	}
+}
+
+/* lock을 release하면 더 이상 현재 스레드에게 우선순위를 빌려줄 이유가 없다. 
+   때문에 현재 스레드의 donator_list에서 현재 해제한 lock을 기다리던 스레드는 제거한다. */
+void remove_with_lock(struct lock *lock) {
+	struct thread *curr = thread_current();
+	struct list_elem *e = list_begin(&curr->donator_list); 
+
+	while (e != list_end(&curr->donator_list)) {
+		if (list_entry(e, struct thread, donator_elem)->wait_lock == lock)
+			e = list_remove(e);
+		else
+			e = list_next(e);
+	}
+}
+
+void refresh_priority() {
+	struct thread *curr = thread_current();
+	struct list_elem *e = list_begin(&curr->donator_list);
+
+	curr->priority = curr->init_priority;
+
+	while (e != list_end(&curr->donator_list)) {
+		struct thread *donator = list_entry(e, struct thread, donator_elem);
+
+		if (donator->priority > curr->priority)
+			curr->priority = donator->priority;
+
+		e = list_next(e);
+	}
 }
