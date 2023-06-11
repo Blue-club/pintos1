@@ -1,18 +1,20 @@
 #include <string.h>
 #include <debug.h>
 
-/* Copies SIZE bytes from SRC to DST, which must not overlap.
-   Returns DST. */
-void *
-memcpy (void *dst_, const void *src_, size_t size) {
+/* dst_에 src_ 를 복사한다.
+   전달받은 size만큼 복사가 일어나니 strlen을 넘기면 널문자는 복사x
+   (strlen + 1)을 넘기면 널문자까지 복사o 
+   복사 후 dst_ 반환.*/
+void * memcpy (void *dst_, const void *src_, size_t size) {
 	unsigned char *dst = dst_;
 	const unsigned char *src = src_;
 
 	ASSERT (dst != NULL || size == 0);
 	ASSERT (src != NULL || size == 0);
 
-	while (size-- > 0)
+	while (size-- > 0) {
 		*dst++ = *src++;
+	}
 
 	return dst_;
 }
@@ -215,6 +217,8 @@ outputs:
 'to'
 'tokenize.'
 */
+/* delimiters를 만나면 거기까지의 문자열에 널문자를 붙여서 반환
+   save_ptr부터 검사한다. */
 char *
 strtok_r (char *s, const char *delimiters, char **save_ptr) {
 	char *token;
@@ -253,7 +257,8 @@ strtok_r (char *s, const char *delimiters, char **save_ptr) {
 	return token;
 }
 
-/* Sets the SIZE bytes in DST to VALUE. */
+/* 전달받은 size byte만큼 dst_ 값을 value로 초기화 후
+   dst_ 반환. */
 void *
 memset (void *dst_, int value, size_t size) {
 	unsigned char *dst = dst_;
@@ -266,7 +271,7 @@ memset (void *dst_, int value, size_t size) {
 	return dst_;
 }
 
-/* Returns the length of STRING. */
+/* 널문자를 제외한 문자열의 길이 반환 */
 size_t
 strlen (const char *string) {
 	const char *p;

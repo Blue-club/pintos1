@@ -176,8 +176,7 @@ thread_print_stats (void) {
    The code provided sets the new thread's `priority' member to
    PRIORITY, but no actual priority scheduling is implemented.
    Priority scheduling is the goal of Problem 1-3. */
-tid_t thread_create (const char *name, int priority,
-		thread_func *function, void *aux) {
+tid_t thread_create (const char *name, int priority, thread_func *function, void *aux) {
 	struct thread *t;
 	tid_t tid;
 
@@ -187,7 +186,7 @@ tid_t thread_create (const char *name, int priority,
 	t = palloc_get_page (PAL_ZERO);
 	if (t == NULL)
 		return TID_ERROR;
-
+	
 	/* Initialize thread. */
 	init_thread (t, name, priority);
 	tid = t->tid = allocate_tid ();
@@ -202,6 +201,12 @@ tid_t thread_create (const char *name, int priority,
 	t->tf.ss = SEL_KDSEG;
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
+
+	/* Project 2 */
+	list_push_back(&thread_current()->child_list, &t->child_elem);
+	t->fdt = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
+	if (t->fdt == NULL)
+		return TID_ERROR;
 
 	/* Add to run queue. */
 	thread_unblock (t);
@@ -314,9 +319,7 @@ void thread_yield (void) {
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
-void
-thread_set_priority (int new_priority) {
-	//thread_current()->priority = new_priority;
+void thread_set_priority (int new_priority) {
 	thread_current()->init_priority = new_priority;
 
 	refresh_priority();
@@ -423,6 +426,13 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->init_priority = priority;
 	t->wait_lock = NULL;
 	list_init(&t->donator_list);
+
+	/* Project 2 */
+	t->exit_status = 0;
+	list_init(&t->child_list);
+	sema_init(&t->load_sema, 0);
+	sema_init(&t->exit_sema, 0);
+	sema_init(&t->wait_sema, 0);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -665,4 +675,19 @@ bool cmp_thread_priority(struct list_elem *e1, struct list_elem *e2, void *aux) 
 	struct thread *t2 = list_entry(e2, struct thread, elem);
 
 	return t1->priority > t2->priority;
+}
+
+struct thread *get_child(int pid) {
+	struct thread *cur = thread_current ();
+	struct list *child_list = &cur->child_list;
+
+	for (struct list_elem *e = list_begin(child_list); e != list_end(child_list); e = list_next(e)){
+		struct thread *t = list_entry(e, struct thread, child_elem);
+
+		if (t->tid == pid) {
+			return t;
+		}
+	}
+
+	return NULL;
 }
