@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h" // Project 2
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -27,6 +28,10 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+/* Project 2 */
+#define FDT_PAGES 2
+#define FDT_COUNT_LIMIT 128
 
 /* A kernel thread or user process.
  *
@@ -90,10 +95,28 @@ struct thread {
 	tid_t tid;                          /* Thread identifier. */
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
+
 	int priority;                       /* Priority. */
+	int init_priority;
+
+	int64_t wakeup_ticks;
+	struct lock *wait_lock;
+	struct list donator_list;
+	struct list_elem donator_elem;
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
+
+	/* Project 2 */
+	int exit_status;
+	struct file **fdt;
+	struct intr_frame p_if;
+	struct list child_list;
+	struct list_elem child_elem;
+	struct semaphore load_sema;
+	struct semaphore exit_sema;
+	struct semaphore wait_sema;
+	struct file *running;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -142,5 +165,11 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void do_iret (struct intr_frame *tf);
+
+/* 새로 추가한 함수들 */
+void thread_sleep(int64_t);
+void thread_wakeup(int64_t);
+void preempt(void);
+bool cmp_thread_priority(struct list_elem *, struct list_elem *, void *);
 
 #endif /* threads/thread.h */

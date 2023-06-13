@@ -38,6 +38,13 @@ void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
+/* 새로 추가한 함수 */
+bool cmp_sema_priority(struct list_elem *, struct list_elem *, void *);
+bool cmp_donate_priority(struct list_elem *, struct list_elem *, void *);
+void donate_priority(void);
+void remove_with_lock(struct lock *);
+void refresh_priority(void);
+
 /* Optimization barrier.
  *
  * The compiler will not reorder operations across an
